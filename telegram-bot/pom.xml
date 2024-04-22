@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.copy.trade</groupId>
+        <artifactId>copy-trade-bot-parent</artifactId>
+        <version>0.0.1</version>
+    </parent>
+
+    <artifactId>telegram-bot</artifactId>
+    <packaging>jar</packaging>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <telegrambots.version>6.1.0</telegrambots.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.copy.trade</groupId>
+            <artifactId>availability-common</artifactId>
+            <version>0.0.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots-spring-boot-starter</artifactId>
+            <version>${telegrambots.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.mmorrell</groupId>
+            <artifactId>solanaj</artifactId>
+            <version>1.17.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>okhttp</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.10.0</version>
+        </dependency>
+
+<!--        <dependency>-->
+<!--            <groupId>org.sol4k</groupId>-->
+<!--            <artifactId>sol4k</artifactId>-->
+<!--            <version>0.4.1</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>org.web3j</groupId>-->
+<!--            <artifactId>core</artifactId>-->
+<!--            <version>5.0.0</version>-->
+<!--        </dependency>-->
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

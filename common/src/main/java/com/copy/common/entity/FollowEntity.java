@@ -14,21 +14,24 @@ public class FollowEntity {
     private Long followId;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false, referencedColumnName = "auth_id")
-    private AuthEntity user;
+    @JoinColumn(name = "auth_id", nullable = false, referencedColumnName = "auth_id")
+    private AuthEntity authEntity;
 
     @Column(name = "follow_key_wallet", nullable = false)
     private String followKeyWallet;
 
-    @Column(name = "count_coll_done")
-    private Integer countCollDone;
+    @Column(name = "name_of_wallet", nullable = false)
+    private String nameOfWallet;
 
-//    @Column()
+    @Column(name = "count_coll_done", nullable = false)
+    private Integer countCollDone = 0;
 
-    @Column(name = "count_autotrade_done")
-    private Integer countAutotradeDone;
+    @Column(name = "count_autotrade_done", nullable = false)
+    private Integer countAutotradeDone = 0;
 
     @Column(name = "date_start_follow", nullable = false)
     private LocalDate dateStartFollow;
 
+    @Column(name = "tracking_status", nullable = false)
+    private Boolean trackingStatus;
 }

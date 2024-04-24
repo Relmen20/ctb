@@ -2,17 +2,17 @@ package com.copy.telegram.task;
 
 import com.copy.common.entity.AuthEntity;
 import com.copy.common.entity.FollowEntity;
+import com.copy.common.entity.SubscriptionEntity;
+import com.copy.common.entity.UserWalletsEntity;
 import com.copy.common.repository.AuthRepository;
 import com.copy.common.repository.FollowRepository;
+import com.copy.common.repository.SubscriptionRepository;
+import com.copy.common.repository.UserWalletsRepository;
 import com.copy.telegram.controller.TelegramBot;
 import com.copy.telegram.utils.Commands;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
-import org.p2p.solanaj.core.PublicKey;
-import org.p2p.solanaj.rpc.RpcApi;
-import org.p2p.solanaj.rpc.RpcClient;
-import org.p2p.solanaj.rpc.types.AccountInfo;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -20,6 +20,7 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,11 +41,14 @@ public class AuthTask implements Runnable {
     public static final String REGISTERED = "Successfully registered!";
     public static final String NOT_AVAILABLE_YET = "Not available yet!";
     public static final String ANOTHER_WALLET = "Invalid wallet %s, please enter another wallet";
-    private String client = "https://mainnet.helius-rpc.com/?api-key=aa61fddb-a509-48d4-998b-7ae0b0ae5319";
+    public static final String PLEASE_USE_REG = "You need to be registered, please use /reg";
 
+    private final ConcurrentHashMap<Long, UserWalletsEntity> pendingUserWallet;
     private final ConcurrentHashMap<Long, Integer> chatIdToLastMessage;
     private final TelegramBot telegramBot;
     private final FollowRepository followRepository;
+    private final UserWalletsRepository userWalletsRepository;
+    private final SubscriptionRepository subscriptionRepository;
     private final ConcurrentHashMap<Long, AuthEntity> pendingRegistrations;
     private final Integer messageId;
     private final AuthRepository authRepository;
@@ -52,14 +56,19 @@ public class AuthTask implements Runnable {
     private final String textMessage;
 
     public AuthTask(Long chatId, String textMessage, Integer messageId, AuthRepository authRepository,
-                    FollowRepository followRepository, ConcurrentHashMap<Long, AuthEntity> pendingRegistrations,
+                    FollowRepository followRepository, UserWalletsRepository userWalletsRepository,
+                    SubscriptionRepository subscriptionRepository, ConcurrentHashMap<Long, AuthEntity> pendingRegistrations,
+                    ConcurrentHashMap<Long, UserWalletsEntity> pendingUserWallet,
                     ConcurrentHashMap<Long, Integer> chatIdToLastMessage, TelegramBot telegramBot) {
         this.curChatId = chatId;
         this.textMessage = textMessage;
         this.messageId = messageId;
         this.authRepository = authRepository;
         this.followRepository = followRepository;
+        this.userWalletsRepository = userWalletsRepository;
+        this.subscriptionRepository = subscriptionRepository;
         this.pendingRegistrations = pendingRegistrations;
+        this.pendingUserWallet = pendingUserWallet;
         this.chatIdToLastMessage = chatIdToLastMessage;
         this.telegramBot = telegramBot;
     }
@@ -67,66 +76,73 @@ public class AuthTask implements Runnable {
     @Override
     public void run() {
         try {
-            Optional<AuthEntity> auth = authRepository.findByChatId(curChatId);
+            Optional<AuthEntity> optionalAut = authRepository.findByChatId(curChatId);
+            AuthEntity auth = optionalAut.orElse(null);
 
-            AuthEntity authFromOptional = auth.orElse(null);
-
-            if (authFromOptional != null && !pendingRegistrations.containsKey(curChatId) && textMessage.equals(UPDATE.getShC())) {
-                AuthEntity updateAuth = new AuthEntity();
-                updateAuth.setAuthId(authFromOptional.getAuthId());
-                updateAuth.setChatId(curChatId);
-                pendingRegistrations.put(curChatId, updateAuth);
-            }
-
-            if (textMessage.equals(SHOW_MY_DATA.getShC()) && authFromOptional != null){
-                showMyData(authFromOptional);
+            if (textMessage.equals(REGISTRATION.getShC()) && auth == null) {
+                log.info("Start registration new user with chatId: {}", curChatId);
+                registrationNewUser(curChatId);
             } else if (textMessage.equals(AUTH_CANCEL.getShC())) {
+                log.info("User cancel registration in chat {}", curChatId);
                 pendingRegistrations.remove(curChatId);
                 computeAndDelete();
                 telegramBot.sendMenuKeyBoard(curChatId);
+            } else if (textMessage.equals(SHOW_MY_DATA.getShC()) && auth != null) {
+                showMyData(auth);
             } else if (pendingRegistrations.containsKey(curChatId)) {
                 log.info("Continue registration new user with chatId: {}", curChatId);
                 continueRegistration(curChatId);
-            } else if (authFromOptional == null) {
-                log.info("Start registration new user with chatId: {}", curChatId);
+            } else if (textMessage.equals(UPDATE.getShC()) && auth != null) {
+                log.info("Update user name: {}", auth.getAuthId());
                 registrationNewUser(curChatId);
-            } else {
-                log.info("error");
+            } else if (auth != null) {
+                log.info("Attempt to registration already contains user, chatId: {}, userId: {}", curChatId, auth.getAuthId());
                 computeAndDelete();
                 telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, ALREADY_REGISTERED, BACK_MENU));
+            } else {
+                computeAndDelete();
+                telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, PLEASE_USE_REG, BACK_MENU));
             }
         } catch (Throwable e) {
-            log.error("{}", e.getMessage());
+            log.error("Unknown error, error message: {}", e.getMessage());
         }
     }
 
     private void showMyData(AuthEntity authEntity) {
 
-        List<FollowEntity> followEntities = followRepository.findByUserChatId(authEntity.getChatId());
+        List<FollowEntity> followEntities = followRepository.findByAuthEntity(authEntity);
+        List<UserWalletsEntity> userWalletEntities = userWalletsRepository.findByAuthEntity(authEntity);
 
         StringBuilder messageBuilder = new StringBuilder();
 
         messageBuilder.append("*Информация об аккаунте*\n\n");
 
         messageBuilder.append("Имя пользователя: *").append(authEntity.getPersonName()).append("*\n");
-        messageBuilder.append("Адрес кошелька: `").append(authEntity.getWalletAddress()).append("`\n\n");
+        messageBuilder.append("Тип подписки: *").append(authEntity.getSubscriptionEntity().getSubName()).append("*\n");
+        messageBuilder.append(authEntity.getSubscriptionEntity().getSubDescription()).append("\n\n");
 
         int totalFollowedWallets = followEntities.size();
         int totalCollectionsDone = followEntities.stream().mapToInt(FollowEntity::getCountCollDone).sum();
         int totalAutotradesDone = followEntities.stream().mapToInt(FollowEntity::getCountAutotradeDone).sum();
 
         messageBuilder.append("*Статистика*\n");
+        messageBuilder.append("Количество добавленных кошельков: `").append(userWalletEntities.size()).append("`\n\n");
         messageBuilder.append("Количество отслеживаемых кошельков: ").append(totalFollowedWallets).append("\n");
         messageBuilder.append("Количество выполненных коллов: ").append(totalCollectionsDone).append("\n");
         messageBuilder.append("Количество выполненных автотрейдов: ").append(totalAutotradesDone).append("\n\n");
 
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
         buttons.add(List.of(InlineKeyboardButton.builder().text("Menu").callbackData(MENU.getShC()).build()));
-        buttons.add(List.of(InlineKeyboardButton.builder().text("All Follows").callbackData(FOLLOW.getShC()).build()));
+        buttons.add(List.of(InlineKeyboardButton.builder().text("All Follows").callbackData(FOLLOW.getShC()).build(),
+                            InlineKeyboardButton.builder().text("All Wallets").callbackData(WALLETS.getShC()).build()));
+        buttons.add(List.of(InlineKeyboardButton.builder().text("Subscription").callbackData(SUBSCRIBE.getShC()).build()));
+
 
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(authEntity.getChatId().toString());
-        sendMessage.setText(messageBuilder.toString());
+        sendMessage.setText(messageBuilder.toString().replace(".", "\\.")
+                                                     .replace("!", "\\!")
+        );
         sendMessage.setParseMode("MarkdownV2");
         sendMessage.setReplyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build());
 
@@ -135,14 +151,18 @@ public class AuthTask implements Runnable {
     }
 
     private void registrationNewUser(Long curChatId) {
+        pendingRegistrations.remove(curChatId);
+        SubscriptionEntity subEntity = subscriptionRepository.getBySubName("Default");
         AuthEntity auth = new AuthEntity();
         auth.setChatId(curChatId);
+        auth.setSubscriptionEntity(subEntity);
+        auth.setSubStartDate(LocalDate.now());
         try {
             pendingRegistrations.put(curChatId, auth);
             computeAndDelete();
             telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, YOUR_NAME, BACK_MENU));
         } catch (Exception e) {
-            throw new RuntimeException("Error while registration");
+            throw new RuntimeException("Error while registration: " + e.getMessage());
         }
     }
 
@@ -150,6 +170,7 @@ public class AuthTask implements Runnable {
         try {
             AuthEntity auth = null;
             if (textMessage.equals(UPDATE.getShC())) {
+                pendingRegistrations.remove(curChatId);
                 computeAndDelete();
                 telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, YOUR_NAME, BACK_MENU));
             } else {
@@ -158,52 +179,17 @@ public class AuthTask implements Runnable {
                     if (isValidUsername(textMessage)) {
                         auth.setPersonName(textMessage);
                         computeAndDelete();
-                        telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, WALLET_OR_SEND_SKIP, BACK_MENU));
+                        authRepository.save(auth);
+                        telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, REGISTERED, null));
                     } else {
                         String wrongNameMessage = String.format(ANOTHER_NAME, textMessage);
                         computeAndDelete();
                         telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, wrongNameMessage, BACK_MENU));
                     }
-                } else if (auth.getWalletAddress() == null) {
-//                    if (textMessage.equals(SKIP.getShC())) {
-//                        authRepository.save(auth);
-//                        pendingRegistrations.remove(curChatId);
-//                        computeAndDelete();
-//                        telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, REGISTERED, null));
-//                    } else
-                    if (isValidAddress(textMessage)) {
-                        auth.setWalletAddress(textMessage);
-                        authRepository.save(auth);
-                        pendingRegistrations.remove(curChatId);
-                        computeAndDelete();
-                        telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, REGISTERED, null));
-                    } else {
-                        String wrongNameMessage = String.format(ANOTHER_WALLET, textMessage);
-                        computeAndDelete();
-                        telegramBot.sendResponseMessage(composeDefaultMessage(curChatId, wrongNameMessage, BACK_MENU));
-                    }
-                } else {
-                    authRepository.save(auth);
                 }
             }
         } catch (Exception e) {
-            throw new RuntimeException("Error while continue registration");
-        }
-    }
-
-    private boolean isValidSolanaWalletId(String textMessage) {
-        return true;
-    }
-
-    private boolean isValidAddress(String textMessage) {
-        try {
-            RpcClient rpcClient = new RpcClient(client);
-            RpcApi rpcApi = rpcClient.getApi();
-            AccountInfo info = rpcApi.getAccountInfo(PublicKey.valueOf(textMessage));
-            return info != null;
-        } catch (Exception e) {
-            log.error("{}", e.getMessage());
-            return false;
+            throw new RuntimeException("Error while continue registration: " + e.getMessage());
         }
     }
 

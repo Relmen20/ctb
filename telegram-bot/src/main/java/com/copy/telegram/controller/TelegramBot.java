@@ -12,7 +12,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import javax.annotation.PostConstruct;
-import java.util.List;
 import java.util.stream.Stream;
 
 import static com.copy.telegram.utils.Commands.*;
@@ -95,19 +94,16 @@ public class TelegramBot extends TelegramLongPollingBot {
                 .callbackData(SHOW_MY_DATA.getShC())
                 .build();
 
-        List<InlineKeyboardButton> dataButtonList;
-        dataButtonList = Stream.of(buttonShowMyData).toList();
-
-        List<InlineKeyboardButton> regButtonList;
-        regButtonList = Stream.of(buttonRegistration, buttonUpdateData).toList();
-
-        List<InlineKeyboardButton> followButtonList;
-        followButtonList = Stream.of(buttonFollow, buttonAddFollow).toList();
+        InlineKeyboardButton buttonSubscribe = InlineKeyboardButton.builder()
+                .text("Subscribe")
+                .callbackData(SUBSCRIBE.getShC())
+                .build();
 
         InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
-                .keyboardRow(dataButtonList)
-                .keyboardRow(regButtonList)
-                .keyboardRow(followButtonList)
+                .keyboardRow(Stream.of(buttonShowMyData).toList())
+                .keyboardRow(Stream.of(buttonRegistration, buttonUpdateData).toList())
+                .keyboardRow(Stream.of(buttonFollow, buttonAddFollow).toList())
+                .keyboardRow(Stream.of(buttonSubscribe).toList())
                 .build();
 
         SendMessage keyboardMessage = SendMessage.builder()

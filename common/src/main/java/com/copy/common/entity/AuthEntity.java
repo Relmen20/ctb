@@ -1,7 +1,9 @@
 package com.copy.common.entity;
 
 import lombok.Data;
+
 import javax.persistence.*;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "auth", schema = "trader")
@@ -18,9 +20,17 @@ public class AuthEntity {
     @Column(name = "chat_id", nullable = false)
     private Long chatId;
 
-    @Column(name = "wallet_address")
-    private String walletAddress;
+    @OneToOne
+    @JoinColumn(name = "active_sub_id", nullable = false, referencedColumnName = "subscription_id", unique = true)
+    private SubscriptionEntity subscriptionEntity;
 
-    @Column(name = "private_key")
-    private String privateKey;
+    @Column(name = "sub_start_date", nullable = false)
+    private LocalDate subStartDate;
+
+//    @OneToMany(mappedBy = "followEntity", cascade = CascadeType.ALL, orphanRemoval = true)
+//    private List<FollowEntity> followEntities;
+//
+//    @OneToMany(mappedBy = "userWalletEntity", cascade = CascadeType.ALL, orphanRemoval = true)
+//    @JoinColumn
+//    private List<UserWalletsEntity> wallets;
 }

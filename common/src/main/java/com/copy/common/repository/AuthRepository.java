@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface AuthRepository extends JpaRepository<AuthEntity, Integer> {
+public interface AuthRepository extends JpaRepository<AuthEntity, Long> {
 
     Optional<AuthEntity> findByChatId(Long chatId);
 }

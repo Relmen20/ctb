@@ -1,8 +1,8 @@
 package com.copy.common.entity;
 
 import lombok.Data;
+
 import javax.persistence.*;
-import java.time.Period;
 
 @Entity
 @Table(name = "subscription", schema = "trader")
@@ -16,6 +16,9 @@ public class SubscriptionEntity {
     @Column(name = "sub_name", nullable = false)
     private String subName;
 
+    @Column(name = "sub_description", nullable = false)
+    private String subDescription;
+
     @Column(name = "follow_key_available", nullable = false)
     private Integer followKeyAvailable;
 
@@ -26,5 +29,13 @@ public class SubscriptionEntity {
     private Float subPrice;
 
     @Column(name = "sub_date_period", nullable = false)
-    private Period subDatePeriod;
+    private String subDatePeriod;
+
+//    public Period getSubDatePeriodAsObject() {
+//        return Period.parse(subDatePeriod);
+//    }
+//
+//    public void setSubDatePeriodAsObject(Period period) {
+//        this.subDatePeriod = period.toString();
+//    }
 }

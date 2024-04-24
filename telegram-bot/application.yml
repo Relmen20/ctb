@@ -30,7 +30,9 @@ bot:
   token: 1748682168:AAGmDaWc_8xyCeEoS8BfaVban_Ng7fKECfU
   username: sniper
   session:
-    maxSessions: 10
+    maxAuthSessions: 20
+    maxFollowSessions: 30
+    maxSubscriptionSessions: 10
 rpc:
   web:
     client: "https://mainnet.helius-rpc.com/?api-key=aa61fddb-a509-48d4-998b-7ae0b0ae5319"

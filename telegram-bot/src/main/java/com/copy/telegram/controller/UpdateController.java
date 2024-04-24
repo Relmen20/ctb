@@ -2,8 +2,11 @@ package com.copy.telegram.controller;
 
 import com.copy.common.entity.AuthEntity;
 import com.copy.common.entity.FollowEntity;
+import com.copy.common.entity.UserWalletsEntity;
 import com.copy.common.repository.AuthRepository;
 import com.copy.common.repository.FollowRepository;
+import com.copy.common.repository.SubscriptionRepository;
+import com.copy.common.repository.UserWalletsRepository;
 import com.copy.telegram.producer.impl.UpdateProducerImpl;
 import com.copy.telegram.task.AuthTask;
 import com.copy.telegram.task.FollowTask;
@@ -32,12 +35,16 @@ import static com.copy.telegram.utils.Commands.*;
 public class UpdateController {
 
     @Autowired
-    @Qualifier("authExecutor")
+    @Qualifier(value = "authExecutor")
     private final ThreadPoolTaskExecutor authExecutor;
 
     @Autowired
-    @Qualifier("followExecutor")
+    @Qualifier(value = "followExecutor")
     private final ThreadPoolTaskExecutor followExecutor;
+
+    @Autowired
+    @Qualifier(value = "subscriptionExecutor")
+    private final ThreadPoolTaskExecutor subscriptionExecutor;
 
     private TelegramBot telegramBot;
 
@@ -46,9 +53,15 @@ public class UpdateController {
     @Autowired
     private FollowRepository followRepository;
     @Autowired
+    private UserWalletsRepository userWalletsRepository;
+    @Autowired
+    private SubscriptionRepository subscriptionRepository;
+    @Autowired
     private ConcurrentHashMap<Long, AuthEntity> pendingRegistrations;
     @Autowired
     private ConcurrentHashMap<Long, FollowEntity> pendingFollow;
+    @Autowired
+    private ConcurrentHashMap<Long, UserWalletsEntity> pendingUserWallet;
     @Autowired
     private ConcurrentHashMap<Long, Integer> chatIdToLastMessage;
 
@@ -62,13 +75,15 @@ public class UpdateController {
     @Bean
     @Scope("prototype")
     public AuthTask getAuthTask(Long chatId, String message, Integer messageId) {
-        return new AuthTask(chatId, message, messageId, authRepository, followRepository, pendingRegistrations, chatIdToLastMessage, telegramBot);
+        return new AuthTask(chatId, message, messageId, authRepository, followRepository, userWalletsRepository,
+                            subscriptionRepository, pendingRegistrations, pendingUserWallet, chatIdToLastMessage, telegramBot);
     }
 
     @Bean
     @Scope("prototype")
     public FollowTask getFollowTask(Long chatId, String message, Integer messageId) {
-        return new FollowTask(chatId, message, messageId, followRepository, authRepository, pendingFollow, chatIdToLastMessage, telegramBot);
+        return new FollowTask(chatId, message, messageId, followRepository, authRepository,
+                                pendingFollow, chatIdToLastMessage, telegramBot);
     }
 
     public void processUpdate(Update update) {
@@ -103,6 +118,8 @@ public class UpdateController {
                     command = SHOW_;
                 } else if (textMessage.startsWith(DELETE_FOLLOW.getShC())) {
                     command = DELETE_FOLLOW;
+                }else if (textMessage.startsWith(CHANGE_FOLLOW_NAME.getShC())) {
+                    command = CHANGE_FOLLOW_NAME;
                 } else if (textMessage.startsWith(START_FOLLOW.getShC())) {
                     command = START_FOLLOW;
                 } else if (textMessage.startsWith(STOP_FOLLOW.getShC())) {
@@ -130,6 +147,8 @@ public class UpdateController {
                      FOLLOW_CANCEL, BACK_ALL_FOLLOW, START_FOLLOW, STOP_FOLLOW:
                     followExecutor.execute(getFollowTask(chatId, textMessage, messageId));
                     break;
+                case SUBSCRIBE:
+
                 default:
                     break;
             }

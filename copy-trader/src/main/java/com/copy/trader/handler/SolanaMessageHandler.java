@@ -26,8 +26,7 @@ public class SolanaMessageHandler implements MessageHandler{
     public void handleMessage(String message) {
         try{
             JSONObject jsonMessage = new JSONObject(message);
-            if(!handleErrorMessage(jsonMessage) && message.contains(RAYDIUM_LPV4)){
-//                log.info(message);
+            if(!handleErrorMessage(jsonMessage)){
                 handleTransaction(jsonMessage);
             }
         }catch(Throwable e){
@@ -44,7 +43,7 @@ public class SolanaMessageHandler implements MessageHandler{
             String subscription = String.valueOf(jsonMessage.getJSONObject("params").get("subscription"));
             String slot = String.valueOf(resultMessage.getJSONObject("context").get("slot"));
             log.info("Subscription: {}; slot: {}; signature: {}", subscription, slot, signature);
-            tradeService.startTradeProcedure(signature, Integer.parseInt(slot));
+//            tradeService.startTradeProcedure(signature, Integer.parseInt(slot));
         }
     }
 

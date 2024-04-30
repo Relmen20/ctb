@@ -1,8 +1,8 @@
 package com.copy.telegram.producer;
 
-import org.telegram.telegrambots.meta.api.objects.Update;
+import com.copy.common.dto.FollowTaskDto;
 
 public interface UpdateProducer {
 
-    void produce(Update update);
+    void produce(String routingKey, FollowTaskDto dto);
 }

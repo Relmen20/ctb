@@ -4,16 +4,35 @@ spring:
     username: postgres
     password: 12345
 #    driver-class-name: org.postgresql.Driver
+
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: user
+    password: pass
+    concurrency: 1
+    exchanges:
+      trader: trader.follow.exchange
+    routing-keys:
+      start: "start"
+      stop: "stop"
+    queues:
+      startQueue: "trader.follow.start.queue"
+      stopQueue: "trader.follow.stop.queue"
+
   flyway:
+    enabled: true
     username: postgres
     password: 12345
-    enabled: true
 #    locations: classpath:db.migration
     baselineOnMigrate: true
 
   jpa:
     hibernate:
       ddl-auto: update
+
+server:
+  port: 9897
 
 rpc:
   web:
@@ -29,12 +48,12 @@ solana:
       seconds: 20
 
 raydium:
-  address: "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1"
+  address: "So11111111111111111111111111111111111111112"
   lpv4: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 
 logging:
   level:
     org.springframework.web: INFO
     org.springframework.core.env: DEBUG
-    com.copy.trade: INFO
-    org.flywaydb: DEBUG
+    com.copy.trader: INFO
+    org.flywaydb: INFO

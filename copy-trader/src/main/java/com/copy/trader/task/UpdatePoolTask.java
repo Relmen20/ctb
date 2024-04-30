@@ -19,12 +19,14 @@ public class UpdatePoolTask {
     @Value("${solana.web.address}")
     private String SOLANA_WEB_ADDRESS;
 
+    @Value("${raydium.address}")
+    private String person;
+
     @Autowired
     private MessageHandler messageHandler;
 
     public void start(){
-//        PersonEntity persons = clientRepository.;
-//        persons.subscribe(persons);
+//        subscribe(person);
     }
 
     public void subscribe(String person) {

@@ -43,7 +43,16 @@
   "policies": [],
   "queues": [
     {
-      "name": "trader.messages.queue",
+      "name": "trader.follow.start.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "trader.follow.stop.queue",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -54,7 +63,7 @@
   ],
   "exchanges": [
     {
-      "name": "trader.exchange",
+      "name": "trader.follow.exchange",
       "vhost": "/",
       "type": "direct",
       "durable": true,
@@ -64,12 +73,21 @@
     }
   ],
   "bindings": [
+      {
+      "source": "trader.follow.exchange",
+      "vhost":"/",
+      "routing_key": "stop",
+      "destination": "trader.follow.stop.queue",
+      "destination_type": "queue",
+      "arguments":{}
+    },
     {
-    "source":"trader.messages.queue",
-    "vhost":"/",
-    "routing_key": "#",
-    "destination":"traffic.sequence.queue",
-    "destination_type":"queue",
-    "arguments":{}
-  }]
+      "source": "trader.follow.exchange",
+      "vhost":"/",
+      "routing_key": "start",
+      "destination": "trader.follow.start.queue",
+      "destination_type": "queue",
+      "arguments":{}
+    }
+  ]
 }

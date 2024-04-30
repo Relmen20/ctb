@@ -20,8 +20,8 @@ public class AuthEntity {
     @Column(name = "chat_id", nullable = false)
     private Long chatId;
 
-    @OneToOne
-    @JoinColumn(name = "active_sub_id", nullable = false, referencedColumnName = "subscription_id", unique = true)
+    @ManyToOne
+    @JoinColumn(name = "active_sub_id", nullable = false, referencedColumnName = "subscription_id")
     private SubscriptionEntity subscriptionEntity;
 
     @Column(name = "sub_start_date", nullable = false)

@@ -54,6 +54,11 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void sendResponseMessage(SendMessage sendMessage){
         if(sendMessage != null){
             try{
+                String escapedText = sendMessage.getText().replace(".", "\\.")
+                        .replace("!", "\\!")
+                        .replace("-", "\\-");
+                sendMessage.setText(escapedText);
+                sendMessage.setParseMode("MarkdownV2");
                 execute(sendMessage);
             } catch (TelegramApiException e){
                 log.error("Error while sending message in chat: {}", e.getMessage());
@@ -66,7 +71,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             try{
                 execute(deleteMessage);
             } catch (TelegramApiException e){
-                log.error("Error while sending message in chat: {}", e.getMessage());
+                log.error("Error while sending delete message in chat: {}", e.getMessage());
             }
         }
     }

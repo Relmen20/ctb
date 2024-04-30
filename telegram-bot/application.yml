@@ -14,20 +14,20 @@ spring:
     username: user
     password: pass
     concurrency: 1
-    async-template:
-      converter-future:
-        timeout:
-          seconds: 20
     exchanges:
-      trader: trader.exchange
+      trader: trader.follow.exchange
     routing-keys:
-      default: "#"
+      start: "start"
+      stop: "stop"
+    queues:
+      startQueue: "trader.follow.start.queue"
+      stopQueue: "trader.follow.stop.queue"
 
 server:
   port: 8182
 
 bot:
-  token: 1748682168:AAGmDaWc_8xyCeEoS8BfaVban_Ng7fKECfU
+  token: #######################
   username: sniper
   session:
     maxAuthSessions: 20

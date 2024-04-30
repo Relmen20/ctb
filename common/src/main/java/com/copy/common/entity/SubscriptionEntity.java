@@ -22,6 +22,9 @@ public class SubscriptionEntity {
     @Column(name = "follow_key_available", nullable = false)
     private Integer followKeyAvailable;
 
+    @Column(name = "count_coll_available", nullable = false)
+    private Integer countCollAvailable;
+
     @Column(name = "count_autotrade_available", nullable = false)
     private Integer countAutotradeAvailable;
 

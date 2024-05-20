@@ -19,7 +19,10 @@ public class WebsocketClientEndpoint {
     private Session userSession = null;
     private com.copy.trader.handler.MessageHandler messageHandler;
 
-    public WebsocketClientEndpoint(URI endpointURI) {
+    private final String specialKey;
+
+    public WebsocketClientEndpoint(URI endpointURI, String specialKey) {
+        this.specialKey = specialKey;
         try {
             WebSocketContainer container = ContainerProvider.getWebSocketContainer();
             container.connectToServer(this, endpointURI);
@@ -31,7 +34,7 @@ public class WebsocketClientEndpoint {
     @OnOpen
     public void onOpen(Session userSession) {
         timeStartConnection = new Date().getTime();
-        log.info("Opening websocket, connection starts at: {}", new Date(timeStartConnection));
+        log.info("Opening websocket, connection starts at: {} for user:follow {}", new Date(timeStartConnection), specialKey);
         this.userSession = userSession;
     }
 
@@ -40,7 +43,7 @@ public class WebsocketClientEndpoint {
     public void onClose(Session userSession, CloseReason reason) {
         timeStopConnection = new Date().getTime();
         connectionAliveTime();
-        log.info("Closing websocket at: {}", new Date(timeStopConnection));
+        log.info("Closing websocket at: {} for user:follow {}", new Date(timeStopConnection), specialKey);
         this.userSession = null;
     }
 
@@ -48,7 +51,7 @@ public class WebsocketClientEndpoint {
     @OnMessage
     public void onMessage(String message) {
         if (this.messageHandler != null) {
-            this.messageHandler.handleMessage(message);
+            this.messageHandler.handleMessage(message, specialKey);
         }
     }
 

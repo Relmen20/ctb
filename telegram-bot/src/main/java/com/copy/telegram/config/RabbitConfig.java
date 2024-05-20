@@ -1,5 +1,7 @@
 package com.copy.telegram.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -16,8 +18,15 @@ public class RabbitConfig {
         return rabbitTemplate;
     }
 
+    @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        return objectMapper;
+    }
+
     @Bean("jsonMessageConverter")
     public Jackson2JsonMessageConverter getJsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        return new Jackson2JsonMessageConverter(objectMapper());
     }
 }

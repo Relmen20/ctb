@@ -1,11 +1,13 @@
 package com.copy.telegram.controller;
 
+import com.copy.telegram.utils.MessageUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -56,10 +58,12 @@ public class TelegramBot extends TelegramLongPollingBot {
             try{
                 String escapedText = sendMessage.getText().replace(".", "\\.")
                         .replace("!", "\\!")
-                        .replace("-", "\\-");
+                        .replace("-", "\\-")
+                        .replace(">", "\\>");
                 sendMessage.setText(escapedText);
                 sendMessage.setParseMode("MarkdownV2");
-                execute(sendMessage);
+                Message executableMessage = execute(sendMessage);
+                MessageUtils.computeMessage(Long.valueOf(sendMessage.getChatId()), executableMessage.getMessageId());
             } catch (TelegramApiException e){
                 log.error("Error while sending message in chat: {}", e.getMessage());
             }

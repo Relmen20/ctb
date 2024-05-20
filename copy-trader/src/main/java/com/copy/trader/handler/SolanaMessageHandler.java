@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-
 @Service
 @Slf4j
 public class SolanaMessageHandler implements MessageHandler{
@@ -23,27 +22,26 @@ public class SolanaMessageHandler implements MessageHandler{
     private static final int MAX_RETRIES = 3;
 
     @Override
-    public void handleMessage(String message) {
+    public void handleMessage(String message, String specialKey) {
         try{
             JSONObject jsonMessage = new JSONObject(message);
             if(!handleErrorMessage(jsonMessage)){
-                handleTransaction(jsonMessage);
+                handleTransaction(jsonMessage, specialKey);
             }
         }catch(Throwable e){
-            log.error(e.getMessage());
+            log.error("Error during handle message: {}", e.getMessage());
         }
     }
 
-    private void handleTransaction(JSONObject jsonMessage) {
+    private void handleTransaction(JSONObject jsonMessage, String specialKey) {
         JSONObject resultMessage = jsonMessage.getJSONObject("params").getJSONObject("result");
 
         if(resultMessage.getJSONObject("value").isNull("err")){
-//            log.info("Found transaction!");
             String signature = resultMessage.getJSONObject("value").getString("signature");
             String subscription = String.valueOf(jsonMessage.getJSONObject("params").get("subscription"));
-            String slot = String.valueOf(resultMessage.getJSONObject("context").get("slot"));
-            log.info("Subscription: {}; slot: {}; signature: {}", subscription, slot, signature);
-//            tradeService.startTradeProcedure(signature, Integer.parseInt(slot));
+//            String slot = String.valueOf(resultMessage.getJSONObject("context").get("slot"));
+            log.debug("Subscription: {}; signature: {}", subscription, signature);
+            tradeService.startTradeProcedure(signature, specialKey);
         }
     }
 
@@ -51,7 +49,6 @@ public class SolanaMessageHandler implements MessageHandler{
         boolean hasErrorMessage = false;
         if(jsonMessage.has("error") && !jsonMessage.isNull("error")){
             JSONObject errorMessage = jsonMessage.getJSONObject("error");
-            log.info(String.valueOf(errorMessage));
 
             //TODO: Обрабатывать возможные виды ошибок
             // -32602: Ошибка в токене mentions; 0xffff8044 - ошибка парсинга json и т.д...

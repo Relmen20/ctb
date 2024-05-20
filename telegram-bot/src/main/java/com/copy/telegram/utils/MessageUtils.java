@@ -1,16 +1,35 @@
 package com.copy.telegram.utils;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 @Component
+@RequiredArgsConstructor
 public class MessageUtils {
+
+    private static final ConcurrentHashMap<Long, Integer> chatIdToLastMessage =  new ConcurrentHashMap<>();
+
+    public static DeleteMessage computeAndDelete(Long curChatId) {
+        return DeleteMessage.builder()
+                .chatId(curChatId)
+                .messageId(chatIdToLastMessage.get(curChatId))
+                .build();
+    }
+
+    public static void computeMessage(Long curChatId, Integer messageId) {
+        if (messageId != null) {
+            chatIdToLastMessage.compute(curChatId, (k, existingValue) -> messageId);
+        }
+    }
 
     public SendMessage generateSendMessageWithText(Update update, String text) {
         var message = update.getMessage();

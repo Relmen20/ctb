@@ -14,7 +14,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import static com.copy.telegram.utils.Commands.*;
@@ -28,22 +27,16 @@ public class SubscriptionTask implements Runnable {
 
     private final Long curChatId;
     private final String textMessage;
-    private final Integer messageId;
     private final SubscriptionRepository subscriptionRepository;
     private final AuthRepository authRepository;
-    private final ConcurrentHashMap<Long, Integer> chatIdToLastMessage;
     private final TelegramBot telegramBot;
 
-    public SubscriptionTask(Long curChatId, String textMessage, Integer messageId,
-                            SubscriptionRepository subscriptionRepository, AuthRepository authRepository,
-                            ConcurrentHashMap<Long, Integer> chatIdToLastMessage, TelegramBot telegramBot) {
+    public SubscriptionTask(Long curChatId, String textMessage, SubscriptionRepository subscriptionRepository,
+                            AuthRepository authRepository, TelegramBot telegramBot) {
         this.curChatId = curChatId;
         this.textMessage = textMessage;
-        this.messageId = messageId;
         this.subscriptionRepository = subscriptionRepository;
         this.authRepository = authRepository;
-
-        this.chatIdToLastMessage = chatIdToLastMessage;
         this.telegramBot = telegramBot;
     }
 

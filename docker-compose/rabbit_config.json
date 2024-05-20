@@ -59,11 +59,56 @@
       "arguments": {
         "x-queue-type": "classic"
       }
+    },
+    {
+      "name": "trader.follow.start.receipt.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "trader.follow.stop.receipt.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "trader.follow.coll.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
     }
   ],
   "exchanges": [
     {
+      "name": "trader.follow.coll.exchange",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
       "name": "trader.follow.exchange",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "trader.follow.receipt.exchange",
       "vhost": "/",
       "type": "direct",
       "durable": true,
@@ -73,7 +118,7 @@
     }
   ],
   "bindings": [
-      {
+    {
       "source": "trader.follow.exchange",
       "vhost":"/",
       "routing_key": "stop",
@@ -86,6 +131,30 @@
       "vhost":"/",
       "routing_key": "start",
       "destination": "trader.follow.start.queue",
+      "destination_type": "queue",
+      "arguments":{}
+    },
+    {
+      "source": "trader.follow.receipt.exchange",
+      "vhost":"/",
+      "routing_key": "stop",
+      "destination": "trader.follow.stop.receipt.queue",
+      "destination_type": "queue",
+      "arguments":{}
+    },
+    {
+      "source": "trader.follow.receipt.exchange",
+      "vhost":"/",
+      "routing_key": "start",
+      "destination": "trader.follow.start.receipt.queue",
+      "destination_type": "queue",
+      "arguments":{}
+    },
+    {
+      "source": "trader.follow.coll.exchange",
+      "vhost":"/",
+      "routing_key": "#",
+      "destination": "trader.follow.coll.queue",
       "destination_type": "queue",
       "arguments":{}
     }

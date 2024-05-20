@@ -12,8 +12,10 @@ spring:
     password: pass
     concurrency: 1
     exchanges:
-      trader: trader.follow.exchange
+      traderReceipt: trader.follow.receipt.exchange
+      collExchange: trader.follow.coll.exchange
     routing-keys:
+      default: "#"
       start: "start"
       stop: "stop"
     queues:
@@ -33,6 +35,9 @@ spring:
 
 server:
   port: 9897
+  followExecutor:
+    corePoolSize: 10
+    maxPoolSize: 100
 
 rpc:
   web:

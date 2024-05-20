@@ -2,5 +2,5 @@ package com.copy.trader.handler;
 
 public interface MessageHandler {
 
-    public void handleMessage(String message);
+    void handleMessage(String message, String specialKey);
 }

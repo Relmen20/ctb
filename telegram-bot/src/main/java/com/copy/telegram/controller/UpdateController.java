@@ -7,7 +7,7 @@ import com.copy.common.repository.AuthRepository;
 import com.copy.common.repository.FollowRepository;
 import com.copy.common.repository.SubscriptionRepository;
 import com.copy.common.repository.UserWalletsRepository;
-import com.copy.telegram.producer.impl.FollowProducerImpl;
+import com.copy.telegram.producer.impl.FollowProducer;
 import com.copy.telegram.task.AuthTask;
 import com.copy.telegram.task.FollowTask;
 import com.copy.telegram.task.SubscriptionTask;
@@ -23,7 +23,6 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
@@ -31,6 +30,8 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.copy.telegram.utils.Commands.*;
+import static com.copy.telegram.utils.MessageUtils.computeAndDelete;
+import static com.copy.telegram.utils.MessageUtils.computeMessage;
 
 @Component
 @Slf4j
@@ -54,7 +55,7 @@ public class UpdateController {
 
     private TelegramBot telegramBot;
 
-    private final FollowProducerImpl followProducer;
+    private final FollowProducer followProducer;
     private final AuthRepository authRepository;
     private final FollowRepository followRepository;
     private final UserWalletsRepository userWalletsRepository;
@@ -62,7 +63,6 @@ public class UpdateController {
     private final ConcurrentHashMap<Long, AuthEntity> pendingRegistrations;
     private final ConcurrentHashMap<Long, FollowEntity> pendingFollow;
     private final ConcurrentHashMap<Long, UserWalletsEntity> pendingUserWallet;
-    private final ConcurrentHashMap<Long, Integer> chatIdToLastMessage;
     private final MessageUtils messageUtils;
 
     public void registerBot(TelegramBot telegramBot) {
@@ -94,26 +94,27 @@ public class UpdateController {
 
     @Bean
     @Scope("prototype")
-    private AuthTask getAuthTask(Long chatId, String message, Integer messageId) {
-        return new AuthTask(chatId, message, messageId, authRepository, followRepository, userWalletsRepository,
-                subscriptionRepository, pendingRegistrations, pendingUserWallet, chatIdToLastMessage, telegramBot);
+    private AuthTask getAuthTask(Long chatId, String message) {
+        return new AuthTask(chatId, message, authRepository, followRepository, userWalletsRepository,
+                subscriptionRepository, pendingRegistrations, pendingUserWallet, telegramBot);
     }
 
     @Bean
     @Scope("prototype")
-    private FollowTask getFollowTask(Long chatId, String message, Integer messageId) {
-        return new FollowTask(chatId, message, messageId, followRepository, authRepository,
-                pendingFollow, chatIdToLastMessage, followProducer, telegramBot);
+    private FollowTask getFollowTask(Long chatId, String message) {
+        return new FollowTask(chatId, message, followRepository, authRepository,
+                pendingFollow, followProducer, telegramBot);
     }
 
     @Bean
     @Scope("prototype")
-    private SubscriptionTask getSubscriptionTask(Long chatId, String message, Integer messageId) {
-        return new SubscriptionTask(chatId, message, messageId, subscriptionRepository,
-                authRepository, chatIdToLastMessage, telegramBot);
+    private SubscriptionTask getSubscriptionTask(Long chatId, String message) {
+        return new SubscriptionTask(chatId, message, subscriptionRepository,
+                authRepository, telegramBot);
     }
 
     private void processTextMessage(String textMessage, Long chatId, Integer messageId) {
+        computeMessage(chatId, messageId);
         char notAllowed = textContainsNotAllowedChars(textMessage);
         try {
             Commands command = null;
@@ -128,23 +129,22 @@ public class UpdateController {
                 command = FOLLOW;
             }
 
-
             switch (Objects.requireNonNull(command)) {
                 case MENU, BACK_MENU:
-                    prepareForSendTgMessage(chatId, messageId);
+                    prepareForSendTgMessage(chatId);
                     telegramBot.sendMenuKeyBoard(chatId);
                     break;
                 case REGISTRATION, UPDATE, AUTH_CANCEL, SHOW_MY_DATA:
-                    authExecutor.execute(getAuthTask(chatId, textMessage, messageId));
+                    authExecutor.execute(getAuthTask(chatId, textMessage));
                     break;
                 case FOLLOW, ADD_FOLLOW, DELETE_FOLLOW, SHOW_,
                      FOLLOW_CANCEL, BACK_ALL_FOLLOW, START_FOLLOW,
                      STOP_FOLLOW, CHANGE_FOLLOW_NAME:
-                    followExecutor.execute(getFollowTask(chatId, textMessage, messageId));
+                    followExecutor.execute(getFollowTask(chatId, textMessage));
                     break;
                 case SUBSCRIBE, SUB_SHOW:
-                    prepareForSendTgMessage(chatId, messageId);
-                    subscriptionExecutor.execute(getSubscriptionTask(chatId, textMessage, messageId));
+                    prepareForSendTgMessage(chatId);
+                    subscriptionExecutor.execute(getSubscriptionTask(chatId, textMessage));
                     break;
                 default:
                     break;
@@ -163,8 +163,8 @@ public class UpdateController {
         return 'n';
     }
 
-    private void prepareForSendTgMessage(Long chatId, Integer messageId) {
-        computeAndDelete(chatId, messageId);
+    private void prepareForSendTgMessage(Long chatId) {
+        telegramBot.sendDeleteMessage(computeAndDelete(chatId));
         pendingFollow.remove(chatId);
         pendingRegistrations.remove(chatId);
     }
@@ -197,17 +197,4 @@ public class UpdateController {
         }
         return false;
     }
-
-    private void computeAndDelete(Long curChatId, Integer messageId) {
-        if (messageId != null) {
-            chatIdToLastMessage.compute(curChatId, (k, existingValue) -> messageId);
-
-            DeleteMessage deleteMessage = DeleteMessage.builder()
-                    .chatId(curChatId)
-                    .messageId(chatIdToLastMessage.get(curChatId))
-                    .build();
-            telegramBot.sendDeleteMessage(deleteMessage);
-        }
-    }
-
 }

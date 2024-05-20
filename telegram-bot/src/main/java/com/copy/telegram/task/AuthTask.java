@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
@@ -26,6 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.copy.telegram.utils.Commands.*;
+import static com.copy.telegram.utils.MessageUtils.computeAndDelete;
 
 @Component
 @Scope("prototype")
@@ -43,32 +43,27 @@ public class AuthTask implements Runnable {
     public static final String PLEASE_USE_REG = "You need to be registered, please use /reg";
 
     private final ConcurrentHashMap<Long, UserWalletsEntity> pendingUserWallet;
-    private final ConcurrentHashMap<Long, Integer> chatIdToLastMessage;
     private final TelegramBot telegramBot;
     private final FollowRepository followRepository;
     private final UserWalletsRepository userWalletsRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final ConcurrentHashMap<Long, AuthEntity> pendingRegistrations;
-    private final Integer messageId;
     private final AuthRepository authRepository;
     private final Long curChatId;
     private final String textMessage;
 
-    public AuthTask(Long chatId, String textMessage, Integer messageId, AuthRepository authRepository,
-                    FollowRepository followRepository, UserWalletsRepository userWalletsRepository,
-                    SubscriptionRepository subscriptionRepository, ConcurrentHashMap<Long, AuthEntity> pendingRegistrations,
-                    ConcurrentHashMap<Long, UserWalletsEntity> pendingUserWallet,
-                    ConcurrentHashMap<Long, Integer> chatIdToLastMessage, TelegramBot telegramBot) {
+    public AuthTask(Long chatId, String textMessage, AuthRepository authRepository, FollowRepository followRepository,
+                    UserWalletsRepository userWalletsRepository, SubscriptionRepository subscriptionRepository,
+                    ConcurrentHashMap<Long, AuthEntity> pendingRegistrations,
+                    ConcurrentHashMap<Long, UserWalletsEntity> pendingUserWallet, TelegramBot telegramBot) {
         this.curChatId = chatId;
         this.textMessage = textMessage;
-        this.messageId = messageId;
         this.authRepository = authRepository;
         this.followRepository = followRepository;
         this.userWalletsRepository = userWalletsRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.pendingRegistrations = pendingRegistrations;
         this.pendingUserWallet = pendingUserWallet;
-        this.chatIdToLastMessage = chatIdToLastMessage;
         this.telegramBot = telegramBot;
     }
 
@@ -84,7 +79,7 @@ public class AuthTask implements Runnable {
             } else if (textMessage.equals(AUTH_CANCEL.getShC())) {
                 log.info("User cancel registration in chat {}", curChatId);
                 pendingRegistrations.remove(curChatId);
-                computeAndDelete();
+                telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                 telegramBot.sendMenuKeyBoard(curChatId);
             } else if (textMessage.equals(SHOW_MY_DATA.getShC()) && auth != null) {
                 showMyData(auth);
@@ -96,13 +91,13 @@ public class AuthTask implements Runnable {
                 updateUserName(auth);
             } else if (auth != null) {
                 log.info("Attempt to registration already contains user, chatId: {}, userId: {}", curChatId, auth.getAuthId());
-                computeAndDelete();
+                telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                 telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId,
                                                                                         ALREADY_REGISTERED,
                                                                                         BACK_MENU,
                                                                                         BACK_MENU.getDesc()));
             } else {
-                computeAndDelete();
+                telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                 telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId,
                                                                                         PLEASE_USE_REG,
                                                                                         BACK_MENU,
@@ -119,7 +114,7 @@ public class AuthTask implements Runnable {
         auth.setPersonName(null);
         pendingRegistrations.put(curChatId, auth);
 
-        computeAndDelete();
+        telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
         telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, YOUR_NAME,
                 BACK_MENU, BACK_MENU.getDesc(),
                 AUTH_CANCEL, AUTH_CANCEL.getDesc()));
@@ -156,7 +151,7 @@ public class AuthTask implements Runnable {
         sendMessage.setText(messageBuilder.replace("?n", "\n"));
         sendMessage.setReplyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build());
 
-        computeAndDelete();
+        telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
         telegramBot.sendResponseMessage(sendMessage);
     }
 
@@ -169,7 +164,7 @@ public class AuthTask implements Runnable {
         auth.setSubStartDate(LocalDate.now());
         try {
             pendingRegistrations.put(curChatId, auth);
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
             telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, YOUR_NAME,
                                                                                      BACK_MENU, BACK_MENU.getDesc(),
                                                                                      AUTH_CANCEL, AUTH_CANCEL.getDesc()));
@@ -184,13 +179,13 @@ public class AuthTask implements Runnable {
             if (auth.getPersonName() == null) {
                 if (isValidUsername(textMessage)) {
                     auth.setPersonName(textMessage);
-                    computeAndDelete();
+                    telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                     authRepository.save(auth);
                     telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId, REGISTERED,
                                                                                             BACK_MENU, BACK_MENU.getDesc()));
                 } else {
                     String wrongNameMessage = String.format(ANOTHER_NAME, textMessage);
-                    computeAndDelete();
+                    telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                     telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, wrongNameMessage,
                                                                                             BACK_MENU, BACK_MENU.getDesc(),
                                                                                             AUTH_CANCEL, AUTH_CANCEL.getDesc()));
@@ -198,18 +193,6 @@ public class AuthTask implements Runnable {
             }
         } catch (Exception e) {
             throw new RuntimeException("Error while continue registration: " + e.getMessage());
-        }
-    }
-
-    private void computeAndDelete() {
-        if (messageId != null) {
-            chatIdToLastMessage.compute(curChatId, (k, existingValue) -> messageId);
-
-            DeleteMessage deleteMessage = DeleteMessage.builder()
-                    .chatId(curChatId)
-                    .messageId(chatIdToLastMessage.get(curChatId))
-                    .build();
-            telegramBot.sendDeleteMessage(deleteMessage);
         }
     }
 

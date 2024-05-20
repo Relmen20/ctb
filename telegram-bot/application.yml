@@ -16,12 +16,15 @@ spring:
     concurrency: 1
     exchanges:
       trader: trader.follow.exchange
+      collExchange: trader.follow.coll.exchange
     routing-keys:
+      default: "#"
       start: "start"
       stop: "stop"
     queues:
-      startQueue: "trader.follow.start.queue"
-      stopQueue: "trader.follow.stop.queue"
+      startReceiptQueue: "trader.follow.start.receipt.queue"
+      stopReceiptQueue: "trader.follow.stop.receipt.queue"
+      collQueue: "trader.follow.coll.queue"
 
 server:
   port: 8182
@@ -35,6 +38,7 @@ bot:
     maxSubscriptionSessions: 10
 rpc:
   web:
+    # free api key
     client: "https://mainnet.helius-rpc.com/?api-key=aa61fddb-a509-48d4-998b-7ae0b0ae5319"
 
 logging:

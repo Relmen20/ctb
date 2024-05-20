@@ -6,7 +6,7 @@ import com.copy.common.entity.FollowEntity;
 import com.copy.common.repository.AuthRepository;
 import com.copy.common.repository.FollowRepository;
 import com.copy.telegram.controller.TelegramBot;
-import com.copy.telegram.producer.impl.FollowProducerImpl;
+import com.copy.telegram.producer.impl.FollowProducer;
 import com.copy.telegram.utils.MessageUtils;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +17,6 @@ import org.p2p.solanaj.rpc.types.AccountInfo;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
@@ -27,6 +26,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.copy.telegram.utils.Commands.*;
+import static com.copy.telegram.utils.MessageUtils.computeAndDelete;
 
 @Component
 @Scope("prototype")
@@ -38,7 +38,7 @@ public class FollowTask implements Runnable {
     public static final String ALREADY_HAS_THIS_FOLLOW_KEY = "Your already has this follow key";
     public static final String KEY_SUCCESSFULLY_ADDED = "Please enter name of this follow";
     public static final String TO_FOLLOW = "Send key you want to follow";
-    public static final String TO_ADD = "You don`t have any follows key yet, want to add?";
+    public static final String TO_ADD = "You don't have any follows key yet, want to add?";
     public static final String NO_SUCH_FOLLOW_KEY = "There is no such follow key";
     public static final String NAME_FOR_YOUR_FOLLOW_KEY_S = "Please enter new name for your follow key\n`%s`";
     public static final String ADDRESS_S_WITH_NAME_S = "You successfully add follow address: `%s`\nWith name: %s";
@@ -52,24 +52,20 @@ public class FollowTask implements Runnable {
 
     private final Long curChatId;
     private final String textMessage;
-    private final Integer messageId;
     private final FollowRepository followRepository;
     private final AuthRepository authRepository;
     private final ConcurrentHashMap<Long, FollowEntity> pendingFollow;
-    private final ConcurrentHashMap<Long, Integer> chatIdToLastMessage;
-    private final FollowProducerImpl followProducer;
+    private final FollowProducer followProducer;
     private final TelegramBot telegramBot;
 
-    public FollowTask(Long curChatId, String textMessage, Integer messageId, FollowRepository followRepository,
+    public FollowTask(Long curChatId, String textMessage, FollowRepository followRepository,
                       AuthRepository authRepository, ConcurrentHashMap<Long, FollowEntity> pendingFollow,
-                      ConcurrentHashMap<Long, Integer> chatIdToLastMessage, FollowProducerImpl followProducer, TelegramBot telegramBot) {
+                      FollowProducer followProducer, TelegramBot telegramBot) {
         this.curChatId = curChatId;
         this.textMessage = textMessage;
-        this.messageId = messageId;
         this.followRepository = followRepository;
         this.authRepository = authRepository;
         this.pendingFollow = pendingFollow;
-        this.chatIdToLastMessage = chatIdToLastMessage;
         this.followProducer = followProducer;
         this.telegramBot = telegramBot;
     }
@@ -97,11 +93,11 @@ public class FollowTask implements Runnable {
                     processAddFollow(followList, auth);
                 }
             } else {
-                computeAndDelete();
+                telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                 telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId, YOU_NEED_REG, MENU, MENU.getDesc()));
             }
         } catch (Throwable e) {
-            log.error("{}", e.getMessage());
+            log.error("Error at star: {}", e.getMessage());
         }
     }
 
@@ -131,11 +127,11 @@ public class FollowTask implements Runnable {
             sendMessage.setText("Выберите ключ:");
             sendMessage.setReplyMarkup(inlineKeyboardMarkup);
 
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
 
             telegramBot.sendResponseMessage(sendMessage);
         } else {
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
 
             telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, TO_ADD,
                     ADD_FOLLOW, ADD_FOLLOW.getDesc(),
@@ -149,7 +145,7 @@ public class FollowTask implements Runnable {
 
         if (textMessage.equals(FOLLOW_CANCEL.getShC())) {
             pendingFollow.remove(curChatId);
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
             telegramBot.sendMenuKeyBoard(curChatId);
         } else if (textMessage.startsWith(CHANGE_FOLLOW_NAME.getShC()) || isListFollowInPending(followList)) {
             if (textMessage.startsWith(CHANGE_FOLLOW_NAME.getShC())) {
@@ -160,8 +156,8 @@ public class FollowTask implements Runnable {
                         .findFirst().ifPresent(followEntity -> {
                             followEntity.setNameOfWallet(null);
                             pendingFollow.put(curChatId, followEntity);
-                            computeAndDelete();
                             String newFollowKey = String.format(NAME_FOR_YOUR_FOLLOW_KEY_S, followKeyWallet);
+                            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                             telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, newFollowKey,
                                     BACK_ALL_FOLLOW, BACK_ALL_FOLLOW.getDesc(),
                                     FOLLOW_CANCEL, FOLLOW_CANCEL.getDesc()));
@@ -189,7 +185,7 @@ public class FollowTask implements Runnable {
                     .filter(followEntity -> followEntity.getFollowKeyWallet().equals(followKeyWallet))
                     .findFirst();
 
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
             if (optionalFollowEntity.isEmpty()) {
                 telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId, NO_SUCH_FOLLOW_KEY, MENU, MENU.getDesc()));
             } else {
@@ -199,8 +195,7 @@ public class FollowTask implements Runnable {
                 telegramBot.sendResponseMessage(SendMessage.builder().chatId(curChatId).text(pleaseWait).build());
 
                 followProducer.produceToFollowExchange(FollowTaskDto.builder()
-                        .followAddress(followEntity.getFollowKeyWallet())
-                        .authId(followEntity.getAuthEntity().getAuthId())
+                        .follow(followEntity)
                         .isStart(true)
                         .build());
             }
@@ -212,7 +207,7 @@ public class FollowTask implements Runnable {
                     .filter(followEntity -> followEntity.getFollowKeyWallet().equals(followKeyWallet))
                     .findFirst();
 
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
             if (optionalFollowEntity.isEmpty()) {
                 telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId, NO_SUCH_FOLLOW_KEY, MENU, MENU.getDesc()));
             } else {
@@ -220,10 +215,8 @@ public class FollowTask implements Runnable {
 
                 String pleaseWait = String.format(PLEASE_WAIT_STOP, followEntity.getNameOfWallet());
                 telegramBot.sendResponseMessage(SendMessage.builder().chatId(curChatId).text(pleaseWait).build());
-
                 followProducer.produceToFollowExchange(FollowTaskDto.builder()
-                        .followAddress(followEntity.getFollowKeyWallet())
-                        .authId(followEntity.getAuthEntity().getAuthId())
+                        .follow(followEntity)
                         .isStart(false)
                         .build());
             }
@@ -276,7 +269,7 @@ public class FollowTask implements Runnable {
                     .replyMarkup(keyboard)
                     .build();
 
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
             telegramBot.sendResponseMessage(sendMessage);
         }
     }
@@ -299,7 +292,7 @@ public class FollowTask implements Runnable {
                         BACK_ALL_FOLLOW, BACK_ALL_FOLLOW.getDesc()));
             }
         } catch (Exception e) {
-            log.error("{}", e.getMessage());
+            log.error("Error while delete follow: {}", e.getMessage());
         }
     }
 
@@ -309,17 +302,14 @@ public class FollowTask implements Runnable {
                 FollowEntity containsEntity = pendingFollow.get(curChatId);
                 if (containsEntity.getFollowKeyWallet() == null) {
                     if (!isValidFollowKey(textMessage)) {
-                        computeAndDelete();
                         log.info("Not valid wallet address: {}  for userId: {}", textMessage, containsEntity.getAuthEntity().getAuthId());
                         telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId, NOT_VALID_FOLLOW_KEY,
                                 BACK_MENU, BACK_MENU.getDesc()));
                     } else if (isAlreadyContains(textMessage, followList)) {
-                        computeAndDelete();
                         telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId, ALREADY_HAS_THIS_FOLLOW_KEY,
                                 BACK_MENU, BACK_MENU.getDesc()));
                     } else {
                         containsEntity.setFollowKeyWallet(textMessage);
-                        computeAndDelete();
                         telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, KEY_SUCCESSFULLY_ADDED,
                                 BACK_MENU, BACK_MENU.getDesc(),
                                 ADD_FOLLOW, ADD_FOLLOW.getDesc()));
@@ -332,12 +322,11 @@ public class FollowTask implements Runnable {
                     followRepository.save(containsEntity);
 
                     log.info("Add wallet: {}  for userId: {}", containsEntity.getFollowKeyWallet(), containsEntity.getAuthEntity().getAuthId());
-                    computeAndDelete();
                     String completeAdd = String.format(ADDRESS_S_WITH_NAME_S, containsEntity.getFollowKeyWallet(), textMessage);
                     SendMessage sendMessage = SendMessage.builder()
                             .text(completeAdd)
                             .chatId(curChatId)
-                            .replyMarkup(MessageUtils.getInlineKeyboardTwoButtons(ADD_FOLLOW.getDesc(), ADD_FOLLOW,
+                            .replyMarkup(MessageUtils.getInlineKeyboardTwoButtons(FOLLOW_CANCEL.getDesc(), FOLLOW_CANCEL,
                                     BACK_ALL_FOLLOW.getDesc(), BACK_ALL_FOLLOW))
                             .build();
 
@@ -349,13 +338,13 @@ public class FollowTask implements Runnable {
                 newFollowEntity.setAuthEntity(auth);
                 pendingFollow.put(curChatId, newFollowEntity);
 
-                computeAndDelete();
+                telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
                 telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, TO_FOLLOW,
                         FOLLOW_CANCEL, FOLLOW_CANCEL.getDesc(),
                         BACK_MENU, BACK_MENU.getDesc()));
             }
         } else {
-            computeAndDelete();
+            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
             telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, MAX_FOLLOW_KEY_RESEARCHED,
                     BACK_ALL_FOLLOW, BACK_ALL_FOLLOW.getDesc(), SUBSCRIBE, SUBSCRIBE.getDesc()));
         }
@@ -390,17 +379,5 @@ public class FollowTask implements Runnable {
             );
         }
         return false;
-    }
-
-    private void computeAndDelete() {
-        if (messageId != null) {
-            chatIdToLastMessage.compute(curChatId, (k, existingValue) -> messageId);
-
-            DeleteMessage deleteMessage = DeleteMessage.builder()
-                    .chatId(curChatId)
-                    .messageId(chatIdToLastMessage.get(curChatId))
-                    .build();
-            telegramBot.sendDeleteMessage(deleteMessage);
-        }
     }
 }

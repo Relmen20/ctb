@@ -26,7 +26,10 @@ public class CollsProducer {
     }
 
     private void produce(String routingKey, TransactionDto dto) {
-        log.debug("Produce message: {}, to exchange: {}", dto, traderReceiptExchange);
+        log.info("Produce message to auth: {} with follow: {}, to exchange: {}",
+                dto.getFollowEntity().getAuthEntity().getAuthId(),
+                dto.getFollowEntity().getFollowId(),
+                traderReceiptExchange);
         rabbitTemplate.convertAndSend(traderReceiptExchange, routingKey, dto);
     }
 }

@@ -41,9 +41,11 @@ server:
 
 rpc:
   web:
-    client: "https://mainnet.helius-rpc.com/?api-key=aa61fddb-a509-48d4-998b-7ae0b0ae5319"
+    client: "https://mainnet.helius-rpc.com/"
+    client-transaction: "https://api.helius.xyz/v0/transactions/"
     timeout:
       seconds: 15
+    retries: 15
 
 solana:
   value: "So11111111111111111111111111111111111111112"

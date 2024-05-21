@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -35,6 +36,9 @@ import static com.copy.telegram.utils.MessageUtils.computeAndDelete;
 @Slf4j
 @RequiredArgsConstructor
 public class FollowReceiptService {
+
+    @Value("${rpc.web.client}")
+    private String PRIVATE_RPC_CLIENT;
 
     private final TelegramBot telegramBot;
     private final FollowRepository followRepository;
@@ -94,14 +98,14 @@ public class FollowReceiptService {
         message.append("❗️ Оставшиеся коллы: ")
                 .append(remainingCalls)
                 .append(" / ")
-                .append(remainingCalls)
+                .append(subscriptionEntity.getCountCollAvailable())
                 .append("\n");
 
         int remainingAutotrades = subscriptionEntity.getCountAutotradeAvailable() - totalAutotradesDone;
         message.append("\uD83E\uDD16 Оставшиеся автотрейды: ")
                 .append(remainingAutotrades)
                 .append(" / ")
-                .append(remainingAutotrades)
+                .append(subscriptionEntity.getCountAutotradeAvailable())
                 .append("\n\n");
 
         message.append("Спасибо за использование нашего сервиса!");
@@ -147,15 +151,20 @@ public class FollowReceiptService {
             📝 [View on Solscan](https://solscan.io/tx/%s)\n
             💸 Fee: `%s`\n
             *🪙 Tokens Involved:*\n
-            """.formatted(dto.getSignature(), dto.getFee());
+            """.formatted(dto.getSignature(), dto.getSignature(), dto.getFee());
 
         messageText += dto.getPostTokenBalances().stream()
                 .map(TokenBalanceDto::getMint)
                 .distinct()
-                .map(mint -> "`%s`: `%s` -> `%s`\n".formatted(
-                        tokenNames.get(mint).getSymbol(),
-                        getTokenBalance(dto.getPreTokenBalances(), mint),
-                        getTokenBalance(dto.getPostTokenBalances(), mint)))
+                .map(mint -> {
+                                TokenMetaData token = tokenNames.getOrDefault(mint, null);
+                                String symbol = token == null ? mint : token.getSymbol();
+                                return "[%s](https://solscan.io/token/%s): `%s` -> `%s`\n".formatted(
+                                        symbol, mint,
+                                        getTokenBalance(dto.getPreTokenBalances(), mint),
+                                        getTokenBalance(dto.getPostTokenBalances(), mint));
+                            }
+                )
                 .collect(Collectors.joining());
 
         message.setText(messageText);
@@ -167,19 +176,13 @@ public class FollowReceiptService {
         Map<String, TokenMetaData> tokenNames = new HashMap<>();
 
         for (String mint : mints) {
-            String requestBody = """
-                {
-                    "jsonrpc": "2.0",
-                    "id": "text",
-                    "method": "getAsset",
-                    "params": {
-                        "id": "%s"
-                    }
-                }
-                """.formatted(mint);
+            String requestBody = String.format(
+                    "{\"jsonrpc\":\"2.0\",\"id\":\"text\",\"method\":\"getAsset\",\"params\":{\"id\":\"%s\"}}",
+                    mint
+            );
 
             Request request = new Request.Builder()
-                    .url("https://api.solscan.io/asset")
+                    .url(PRIVATE_RPC_CLIENT)
                     .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
                     .build();
 
@@ -204,7 +207,7 @@ public class FollowReceiptService {
     private String getTokenBalance(List<TokenBalanceDto> balances, String mint) {
         return balances.stream()
                 .filter(balance -> balance.getMint().equals(mint))
-                .map(balance -> String.valueOf(balance.getUiTokenAmount().doubleValue()))
+                .map(balance -> balance.getUiTokenAmount() == null ? "0" : String.valueOf(balance.getUiTokenAmount()))
                 .findFirst()
                 .orElse("0");
     }

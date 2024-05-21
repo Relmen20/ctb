@@ -19,10 +19,13 @@ public class MessageUtils {
     private static final ConcurrentHashMap<Long, Integer> chatIdToLastMessage =  new ConcurrentHashMap<>();
 
     public static DeleteMessage computeAndDelete(Long curChatId) {
-        return DeleteMessage.builder()
-                .chatId(curChatId)
-                .messageId(chatIdToLastMessage.get(curChatId))
-                .build();
+        if (chatIdToLastMessage.get(curChatId) != null){
+            return DeleteMessage.builder()
+                    .chatId(curChatId)
+                    .messageId(chatIdToLastMessage.get(curChatId))
+                    .build();
+        }
+        return null;
     }
 
     public static void computeMessage(Long curChatId, Integer messageId) {

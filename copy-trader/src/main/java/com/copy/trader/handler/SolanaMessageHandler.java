@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.CompletableFuture;
+
 @Service
 @Slf4j
 public class SolanaMessageHandler implements MessageHandler{
@@ -39,9 +41,8 @@ public class SolanaMessageHandler implements MessageHandler{
         if(resultMessage.getJSONObject("value").isNull("err")){
             String signature = resultMessage.getJSONObject("value").getString("signature");
             String subscription = String.valueOf(jsonMessage.getJSONObject("params").get("subscription"));
-//            String slot = String.valueOf(resultMessage.getJSONObject("context").get("slot"));
-            log.debug("Subscription: {}; signature: {}", subscription, signature);
-            tradeService.startTradeProcedure(signature, specialKey);
+            log.info("Found transaction for auth:follow {}; signature: {}", specialKey, signature);
+            CompletableFuture.runAsync(() -> tradeService.startTradeProcedure(signature, specialKey));
         }
     }
 

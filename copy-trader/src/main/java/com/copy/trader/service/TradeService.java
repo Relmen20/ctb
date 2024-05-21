@@ -6,11 +6,11 @@ import com.copy.common.repository.FollowRepository;
 import com.copy.trader.producer.CollsProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
+import org.json.JSONObject;
 import org.p2p.solanaj.rpc.RpcApi;
 import org.p2p.solanaj.rpc.RpcClient;
 import org.p2p.solanaj.rpc.RpcException;
 import org.p2p.solanaj.rpc.types.ConfirmedTransaction;
-import org.p2p.solanaj.rpc.types.config.Commitment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,6 +31,8 @@ public class TradeService {
     private String SOL_VALUE;
     @Value("${rpc.web.timeout.seconds}")
     private int TIMEOUT_IN_SECONDS;
+    @Value("${rpc.web.retries}")
+    private int MAX_RETRIES;
 
     @Autowired
     private TrackingSessionService trackingSessionService;
@@ -48,48 +50,91 @@ public class TradeService {
         rpcApi = rpcClient.getApi();
     }
 
-    private static final int MAX_RETRIES = 9;
+
+//    public void startTradeProcedure(String signature, String specialKey) {
+//        ConfirmedTransaction transaction;
+//        try {
+//            transaction = rpcApi.getTransaction(signature);
+//            if (transaction != null && String.valueOf(new JSONObject(transaction)).contains(SOL_VALUE)) {
+//                log.info("Start handle transaction for user:follow {}, signature: {}", specialKey, signature);
+//                handleTransaction(transaction, specialKey);
+//            } else {
+//                log.info("Null Transaction for signature: {}", signature);
+//            }
+//        } catch (RpcException e) {
+//            log.error("RpcException: {}", e.getMessage());
+//            handleRpcException(signature, 0, rpcApi, specialKey);
+//        } catch (Throwable e) {
+//            log.error("UnknownException: {}", e.getMessage());
+//        }
+//    }
+//
+//    private void handleRpcException(String signature, int retries, RpcApi rpcApi, String specialKey) {
+//        if (retries >= MAX_RETRIES) {
+//            log.error("Max count of retries ({}) was exceeded for signature: {}", retries, signature);
+//            return;
+//        }
+//        ConfirmedTransaction transaction;
+//        try {
+//            transaction = rpcApi.getTransaction(signature, Commitment.CONFIRMED);
+//            if (transaction != null && String.valueOf(new JSONObject(transaction)).contains(SOL_VALUE)) {
+//                handleTransaction(transaction, specialKey);
+//            } else {
+//                log.info("Null Transaction for signature: {}", signature);
+//            }
+//        } catch (RpcException e) {
+//            retries++;
+//            log.error("Retry attempt {} failed: {}", retries, e.getMessage());
+//            try {
+//                Thread.sleep(250);
+//            } catch (InterruptedException ex) {
+//                log.error("Thread interrupted: {}", ex.getMessage());
+//                Thread.currentThread().interrupt();
+//            }
+//            handleRpcException(signature, retries, rpcApi, specialKey);
+//        }
+//    }
+
 
     public void startTradeProcedure(String signature, String specialKey) {
         ConfirmedTransaction transaction;
-        try {
-            transaction = rpcApi.getTransaction(signature, Commitment.CONFIRMED);
-            if (transaction != null && transaction.getTransaction().getMessage().getAccountKeys().contains(SOL_VALUE)) {
-                handleTransaction(transaction, specialKey);
-            } else {
-                log.debug("Null Transaction for signature: {}", signature);
-            }
-        } catch (RpcException e) {
-            log.error("RpcException: {}", e.getMessage());
-            handleRpcException(signature, 0, rpcApi, specialKey);
-        } catch (Throwable e) {
-            log.error("UnknownException: {}", e.getMessage());
-        }
-    }
+        int rpcRetryCount = 0;
+        int transactionRetryCount = 0;
 
-    private void handleRpcException(String signature, int retries, RpcApi rpcApi, String specialKey) {
-        if (retries >= MAX_RETRIES) {
-            log.error("Max count of retries ({}) was exceeded for signature: {}", retries, signature);
-            return;
-        }
-        ConfirmedTransaction transaction;
-        try {
-            transaction = rpcApi.getTransaction(signature, Commitment.CONFIRMED);
-            if (transaction != null) {
-                handleTransaction(transaction, specialKey);
-            } else {
-                log.info("Null Transaction for signature: {}", signature);
-            }
-        } catch (RpcException e) {
-            retries++;
-            log.error("Retry attempt {} failed: {}", retries, e.getMessage());
+        while (true) {
             try {
-                Thread.sleep(250);
-            } catch (InterruptedException ex) {
-                log.error("Thread interrupted: {}", ex.getMessage());
-                Thread.currentThread().interrupt();
+                transaction = rpcApi.getTransaction(signature);
+                if (transaction != null && String.valueOf(new JSONObject(transaction)).contains(SOL_VALUE)) {
+                    log.info("Start handle transaction for user:follow {}, signature: {}", specialKey, signature);
+                    handleTransaction(transaction, specialKey);
+                    break;
+                } else {
+                    log.info("Null transaction for user:follow {}; Signature: {}. Retrying... (Attempt: {})",
+                                                            specialKey, signature, transactionRetryCount + 1);
+                    transactionRetryCount++;
+                    if (transactionRetryCount >= MAX_RETRIES) {
+                        log.info("Max retries reached for user:follow {}. Signature: {}", specialKey, signature);
+                        break;
+                    }
+                    Thread.sleep(1000);
+                }
+            } catch (RpcException e) {
+                log.error("RpcException for user:follow {}, exception: {}. Retrying... (Attempt: {})",
+                                                        specialKey, e.getMessage(), rpcRetryCount + 1);
+                rpcRetryCount++;
+                if (rpcRetryCount >= 3) {
+                    log.error("Max retries reached for RpcException. Signature: {}", signature);
+                    break;
+                }
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {
+                    log.error("InterruptedException occurred during retry delay: {}", ex.getMessage());
+                }
+            } catch (Throwable e) {
+                log.error("UnknownException: {}", e.getMessage());
+                break;
             }
-            handleRpcException(signature, retries, rpcApi, specialKey);
         }
     }
 

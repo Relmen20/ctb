@@ -130,7 +130,7 @@ public class UpdateController {
             }
 
             switch (Objects.requireNonNull(command)) {
-                case MENU, BACK_MENU:
+                case START, MENU, BACK_MENU:
                     prepareForSendTgMessage(chatId);
                     telegramBot.sendMenuKeyBoard(chatId);
                     break;
@@ -139,7 +139,8 @@ public class UpdateController {
                     break;
                 case FOLLOW, ADD_FOLLOW, DELETE_FOLLOW, SHOW_,
                      FOLLOW_CANCEL, BACK_ALL_FOLLOW, START_FOLLOW,
-                     STOP_FOLLOW, CHANGE_FOLLOW_NAME:
+                     STOP_FOLLOW, CHANGE_FOLLOW_NAME, BACK_ALL_FOLLOWS_NOT_DELETE,
+                     SHOW_NOT_DELETE_:
                     followExecutor.execute(getFollowTask(chatId, textMessage));
                     break;
                 case SUBSCRIBE, SUB_SHOW:
@@ -171,7 +172,9 @@ public class UpdateController {
 
     private static @Nullable Commands getCommands(String textMessage) {
         Commands command;
-        if (textMessage.startsWith(SHOW_.getShC())) {
+        if (textMessage.contains(SHOW_NOT_DELETE_.getShC())){
+            command = SHOW_NOT_DELETE_;
+        }else if (textMessage.startsWith(SHOW_.getShC())) {
             command = SHOW_;
         } else if (textMessage.startsWith(DELETE_FOLLOW.getShC())) {
             command = DELETE_FOLLOW;

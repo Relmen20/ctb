@@ -116,7 +116,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 .build();
 
         SendMessage keyboardMessage = SendMessage.builder()
-                .text("Choose one of the op tion: ")
+                .text("Choose one of the option: ")
                 .replyMarkup(keyboard)
                 .chatId(chatId)
                 .build();

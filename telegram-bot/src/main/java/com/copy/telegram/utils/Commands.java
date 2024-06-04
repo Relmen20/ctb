@@ -29,8 +29,10 @@ public enum Commands {
     // help commands for follow
     FOLLOW_CANCEL("/follow-cancel", "Cancel"),
     SHOW_("/my-show-follow_", "Show "),
+    SHOW_NOT_DELETE_("/not_delete_show_", "Show "),
     BACK_ALL_FOLLOW("/back-all-follow", "Back all follows"),
     CHANGE_FOLLOW_NAME("/change_follow_name_", "Rename follow"),
+    BACK_ALL_FOLLOWS_NOT_DELETE("/back-all-follows_not_delete", "Back all follow"),
 
     START_FOLLOW("/start-follow_", "Start follow"),
     STOP_FOLLOW("/stop-follow_", "Stop follow"),

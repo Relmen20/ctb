@@ -12,7 +12,6 @@ import com.copy.telegram.utils.MessageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,7 +19,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +26,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.copy.common.dto.TransactionDto.TokenBalanceDto;
-import static com.copy.telegram.utils.Commands.BACK_ALL_FOLLOW;
-import static com.copy.telegram.utils.Commands.SHOW_;
+import static com.copy.telegram.utils.Commands.BACK_ALL_FOLLOWS_NOT_DELETE;
+import static com.copy.telegram.utils.Commands.SHOW_NOT_DELETE_;
 import static com.copy.telegram.utils.MessageUtils.computeAndDelete;
 
 @Service
@@ -128,9 +126,9 @@ public class FollowReceiptService {
         Long chatId = follow.getAuthEntity().getChatId();
         message.setChatId(chatId);
 
-        String buttonCommandShowFollow = SHOW_.getShC() + follow.getFollowKeyWallet();
-        String buttonTextShowFollow = SHOW_.getDesc() + follow.getNameOfWallet();
-        List<InlineKeyboardButton> row = MessageUtils.getInlineTwoButtons(BACK_ALL_FOLLOW.getDesc(), BACK_ALL_FOLLOW.getShC(),
+        String buttonCommandShowFollow = SHOW_NOT_DELETE_.getShC() + follow.getFollowKeyWallet();
+        String buttonTextShowFollow = SHOW_NOT_DELETE_.getDesc() + follow.getNameOfWallet();
+        List<InlineKeyboardButton> row = MessageUtils.getInlineTwoButtons(BACK_ALL_FOLLOWS_NOT_DELETE.getDesc(), BACK_ALL_FOLLOWS_NOT_DELETE.getShC(),
                                                                           buttonTextShowFollow, buttonCommandShowFollow);
         message.setReplyMarkup(InlineKeyboardMarkup.builder().keyboardRow(row).build());
     }
@@ -196,8 +194,9 @@ public class FollowReceiptService {
                     String symbol = jsonObject.get("symbol").toString();
                     tokenNames.put(mint, TokenMetaData.builder().mint(mint).name(name).symbol(symbol).build());
                 }
-            } catch (IOException | JSONException e) {
-                log.error("Error while get token names by mint< exception: {}", e.getMessage());
+            } catch (Exception e) {
+                tokenNames.put(mint, TokenMetaData.builder().mint(mint).name("Token").symbol("TKN").build());
+                log.error("Error while get token metadata for mint {}; exception: {}", mint, e.getMessage());
             }
         }
 

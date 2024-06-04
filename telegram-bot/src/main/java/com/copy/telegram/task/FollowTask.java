@@ -36,12 +36,12 @@ public class FollowTask implements Runnable {
 
     public static final String NOT_VALID_FOLLOW_KEY = "Not valid follow key";
     public static final String ALREADY_HAS_THIS_FOLLOW_KEY = "Your already has this follow key";
-    public static final String KEY_SUCCESSFULLY_ADDED = "Please enter name of this follow";
+    public static final String PLEASE_ENTER_NAME = "Please enter name of this follow";
     public static final String TO_FOLLOW = "Send key you want to follow";
     public static final String TO_ADD = "You don't have any follows key yet, want to add?";
     public static final String NO_SUCH_FOLLOW_KEY = "There is no such follow key";
     public static final String NAME_FOR_YOUR_FOLLOW_KEY_S = "Please enter new name for your follow key\n`%s`";
-    public static final String ADDRESS_S_WITH_NAME_S = "You successfully add follow address: `%s`\nWith name: %s";
+    public static final String SUCCESSFULY_ADDED = "You successfully add follow address: `%s`\nWith name: %s";
     public static final String MAX_FOLLOW_KEY_RESEARCHED = "You researched your follow keys limit.\nTry to upgrade your subscription or delete some keys";
     public static final String PLEASE_WAIT_START = "Sending info on server to start follow your address %s\nPlease wait";
     public static final String PLEASE_WAIT_STOP = "Sending info on server to stop follow your address %s\nPlease wait";
@@ -79,9 +79,11 @@ public class FollowTask implements Runnable {
                 List<FollowEntity> followList = followRepository.findByAuthEntity(auth);
 
                 if (textMessage.equals(FOLLOW.getShC()) ||
-                        textMessage.equals(BACK_ALL_FOLLOW.getShC())) {
+                        textMessage.equals(BACK_ALL_FOLLOW.getShC()) ||
+                        textMessage.equals(BACK_ALL_FOLLOWS_NOT_DELETE.getShC())) {
                     processAllFollow(followList);
                 } else if (textMessage.startsWith(SHOW_.getShC()) ||
+                        textMessage.contains(SHOW_NOT_DELETE_.getShC()) ||
                         (textMessage.startsWith(CHANGE_FOLLOW_NAME.getShC()) || isListFollowInPending(followList)) ||
                         textMessage.equals(FOLLOW_CANCEL.getShC()) ||
                         textMessage.startsWith(STOP_FOLLOW.getShC()) ||
@@ -127,7 +129,9 @@ public class FollowTask implements Runnable {
             sendMessage.setText("Выберите ключ:");
             sendMessage.setReplyMarkup(inlineKeyboardMarkup);
 
-            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
+            if (!textMessage.equals(BACK_ALL_FOLLOWS_NOT_DELETE.getShC())) {
+                telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
+            }
 
             telegramBot.sendResponseMessage(sendMessage);
         } else {
@@ -167,8 +171,16 @@ public class FollowTask implements Runnable {
                 followEntity.setNameOfWallet(textMessage);
                 followRepository.save(followEntity);
                 pendingFollow.remove(curChatId);
-                showFollowAddressInfo(followEntity);
+                showFollowAddressInfo(followEntity, true);
             }
+        } else if (textMessage.contains(SHOW_NOT_DELETE_.getShC())) {
+            followKeyWallet = textMessage.substring(17);
+            FollowEntity followEntity = followList.stream()
+                    .filter(follEnt -> Objects.equals(follEnt.getFollowKeyWallet(), followKeyWallet))
+                    .findFirst()
+                    .orElse(null);
+
+            showFollowAddressInfo(followEntity, false);
         } else if (textMessage.startsWith(SHOW_.getShC())) {
             followKeyWallet = textMessage.substring(16);
             FollowEntity followEntity = followList.stream()
@@ -176,7 +188,7 @@ public class FollowTask implements Runnable {
                     .findFirst()
                     .orElse(null);
 
-            showFollowAddressInfo(followEntity);
+            showFollowAddressInfo(followEntity, true);
         } else if (textMessage.startsWith(START_FOLLOW.getShC())) {
             pendingFollow.remove(curChatId);
             followKeyWallet = textMessage.substring(14);
@@ -220,8 +232,7 @@ public class FollowTask implements Runnable {
                         .isStart(false)
                         .build());
             }
-        }
-        else {
+        } else {
             SendMessage sendMessage = new SendMessage();
             sendMessage.setChatId(curChatId);
             sendMessage.setText("Произошла ошибка при получении информации о слежении.");
@@ -231,7 +242,7 @@ public class FollowTask implements Runnable {
 
     }
 
-    private void showFollowAddressInfo(FollowEntity followEntity) {
+    private void showFollowAddressInfo(FollowEntity followEntity, boolean delete) {
         if (followEntity != null) {
             String followKeyWallet = followEntity.getFollowKeyWallet();
             StringBuilder messageBuilder = new StringBuilder();
@@ -268,8 +279,7 @@ public class FollowTask implements Runnable {
                     .text(message)
                     .replyMarkup(keyboard)
                     .build();
-
-            telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
+            if (delete) telegramBot.sendDeleteMessage(computeAndDelete(curChatId));
             telegramBot.sendResponseMessage(sendMessage);
         }
     }
@@ -286,6 +296,10 @@ public class FollowTask implements Runnable {
                 FollowEntity deleteFollowEntity = followEntityOptional.get();
                 followRepository.delete(deleteFollowEntity);
                 followList.remove(deleteFollowEntity);
+                followProducer.produceToFollowExchange(FollowTaskDto.builder()
+                        .follow(deleteFollowEntity)
+                        .isStart(false)
+                        .build());
                 processAllFollow(followList);
             } else {
                 telegramBot.sendResponseMessage(MessageUtils.composeMessageOneButtonRow(curChatId, NO_SUCH_FOLLOW_KEY,
@@ -310,9 +324,9 @@ public class FollowTask implements Runnable {
                                 BACK_MENU, BACK_MENU.getDesc()));
                     } else {
                         containsEntity.setFollowKeyWallet(textMessage);
-                        telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, KEY_SUCCESSFULLY_ADDED,
-                                BACK_MENU, BACK_MENU.getDesc(),
-                                ADD_FOLLOW, ADD_FOLLOW.getDesc()));
+                        telegramBot.sendResponseMessage(MessageUtils.composeMessageTwoButtonsRow(curChatId, PLEASE_ENTER_NAME,
+                                FOLLOW_CANCEL, FOLLOW_CANCEL.getDesc(),
+                                BACK_MENU, BACK_MENU.getDesc()));
                     }
                 } else if (containsEntity.getNameOfWallet() == null) {
                     containsEntity.setNameOfWallet(textMessage);
@@ -322,12 +336,14 @@ public class FollowTask implements Runnable {
                     followRepository.save(containsEntity);
 
                     log.info("Add wallet: {}  for userId: {}", containsEntity.getFollowKeyWallet(), containsEntity.getAuthEntity().getAuthId());
-                    String completeAdd = String.format(ADDRESS_S_WITH_NAME_S, containsEntity.getFollowKeyWallet(), textMessage);
+                    String completeAdd = String.format(SUCCESSFULY_ADDED, containsEntity.getFollowKeyWallet(), textMessage);
+                    String showText = SHOW_.getDesc() + containsEntity.getNameOfWallet();
+                    String showCommand = SHOW_.getShC() + containsEntity.getFollowKeyWallet();
                     SendMessage sendMessage = SendMessage.builder()
                             .text(completeAdd)
                             .chatId(curChatId)
-                            .replyMarkup(MessageUtils.getInlineKeyboardTwoButtons(FOLLOW_CANCEL.getDesc(), FOLLOW_CANCEL,
-                                    BACK_ALL_FOLLOW.getDesc(), BACK_ALL_FOLLOW))
+                            .replyMarkup(MessageUtils.getInlineKeyboardTwoButtons(showText, showCommand,
+                                    BACK_ALL_FOLLOW.getDesc(), BACK_ALL_FOLLOW.getShC()))
                             .build();
 
                     telegramBot.sendResponseMessage(sendMessage);

@@ -45,7 +45,7 @@ rpc:
     client-transaction: "https://api.helius.xyz/v0/transactions/"
     timeout:
       seconds: 15
-    retries: 15
+    retries: 20
 
 solana:
   value: "So11111111111111111111111111111111111111112"

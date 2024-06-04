@@ -90,12 +90,14 @@ public class FollowTrackingService {
                     stopFollowReason = STOP_FOLLOWING;
                     receiptDto.setAnswer(Map.of(true, stopFollowReason));
                 }
+                receiptProducer.produceReceipt(receiptDto);
+                stopAllFollowMarkers(dto.getFollow(), specialKey);
             } catch (NullPointerException e){
-                stopFollowReason = NOT_TRACKING;
-                receiptDto.setAnswer(Map.of(false, stopFollowReason));
+                log.error("Trying to stop already stopped follow, auth:follow {}", specialKey);
+                //TODO: decide what to do, send or not!!
+//                stopFollowReason = NOT_TRACKING;
+//                receiptDto.setAnswer(Map.of(false, stopFollowReason));
             }
-            receiptProducer.produceReceipt(receiptDto);
-            stopAllFollowMarkers(dto.getFollow(), specialKey);
         } catch (Exception e){
             log.error("Error while trying check if user already stop follow: {}", e.getMessage());
         }

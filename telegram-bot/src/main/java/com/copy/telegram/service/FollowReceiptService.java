@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import static com.copy.common.dto.TransactionDto.TokenBalanceDto;
 import static com.copy.telegram.utils.Commands.BACK_ALL_FOLLOWS_NOT_DELETE;
 import static com.copy.telegram.utils.Commands.SHOW_NOT_DELETE_;
-import static com.copy.telegram.utils.MessageUtils.computeAndDelete;
+import static com.copy.telegram.utils.MessageUtils.getAndDelete;
 
 @Service
 @Slf4j
@@ -44,7 +44,7 @@ public class FollowReceiptService {
     public void sendReceiptOnFollowFunction(FollowReceiptTaskDto dto) {
         SendMessage message = new SendMessage();
         try {
-            telegramBot.sendDeleteMessage(computeAndDelete(dto.getFollow().getAuthEntity().getChatId()));
+            telegramBot.sendDeleteMessage(getAndDelete(dto.getFollow().getAuthEntity().getChatId()));
             message.setText(generateFollowMessage(dto));
             setSendMessageAttributes(dto.getFollow(), message);
 

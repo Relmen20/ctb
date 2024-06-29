@@ -30,7 +30,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.copy.telegram.utils.Commands.*;
-import static com.copy.telegram.utils.MessageUtils.computeAndDelete;
+import static com.copy.telegram.utils.MessageUtils.getAndDelete;
 import static com.copy.telegram.utils.MessageUtils.computeMessage;
 
 @Component
@@ -165,7 +165,7 @@ public class UpdateController {
     }
 
     private void prepareForSendTgMessage(Long chatId) {
-        telegramBot.sendDeleteMessage(computeAndDelete(chatId));
+        telegramBot.sendDeleteMessage(getAndDelete(chatId));
         pendingFollow.remove(chatId);
         pendingRegistrations.remove(chatId);
     }

@@ -18,7 +18,7 @@ public class MessageUtils {
 
     private static final ConcurrentHashMap<Long, Integer> chatIdToLastMessage =  new ConcurrentHashMap<>();
 
-    public static DeleteMessage computeAndDelete(Long curChatId) {
+    public static DeleteMessage getAndDelete(Long curChatId) {
         if (chatIdToLastMessage.get(curChatId) != null){
             return DeleteMessage.builder()
                     .chatId(curChatId)
